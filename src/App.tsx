@@ -43,20 +43,6 @@ function AppInner() {
     refresh().finally(() => setLoading(false));
   }, [isAuthenticated, refresh]);
 
-  useEffect(() => {
-    if (!isAuthenticated) return;
-    const interval = setInterval(() => { void refresh(); }, 15000);
-    const onFocus = () => { void refresh(); };
-    const onVis = () => { if (!document.hidden) void refresh(); };
-    window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', onVis);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener('focus', onFocus);
-      document.removeEventListener('visibilitychange', onVis);
-    };
-  }, [isAuthenticated, refresh]);
-
   const persist = useCallback(async (next: VacationStore) => {
     syncingRef.current = true;
     setSyncing(true); setError(null);
