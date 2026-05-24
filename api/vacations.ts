@@ -1,10 +1,33 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
-import { getAuthUser } from './_lib/auth';
+import { createHmac } from 'crypto';
 
 interface Person { id: string; name: string }
 interface Vacation { id: string; personId: string; startDate: string; endDate: string; note?: string }
 interface VacationStore { people: Person[]; vacations: Vacation[]; lastUpdated?: string }
+
+function verifyToken(token: string): { sub: string; username: string } | null {
+  try {
+    const [header, payload, sig] = token.split('.');
+    if (!header || !payload || !sig) return null;
+    const secret = process.env.JWT_SECRET ?? 'fallback-secret';
+    const expected = Buffer.from(
+      createHmac('sha256', secret).update(`${header}.${payload}`).digest()
+    ).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+    if (expected !== sig) return null;
+    const data = JSON.parse(Buffer.from(payload, 'base64url').toString()) as { sub: string; username: string; exp: number };
+    if (data.exp < Math.floor(Date.now() / 1000)) return null;
+    return { sub: data.sub, username: data.username };
+  } catch {
+    return null;
+  }
+}
+
+function getAuthUser(req: VercelRequest): { sub: string; username: string } | null {
+  const auth = (req.headers['authorization'] as string) ?? '';
+  if (!auth.startsWith('Bearer ')) return null;
+  return verifyToken(auth.slice(7));
+}
 
 let tableReady = false;
 
