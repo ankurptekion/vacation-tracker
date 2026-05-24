@@ -108,7 +108,14 @@ function AppInner() {
       <main className="max-w-4xl mx-auto px-4 py-8 space-y-5">
         {isAdmin && <SummaryCard people={store.people} vacations={store.vacations} />}
         <PeopleManager people={store.people} onAdd={addPerson} onRemove={removePerson} readOnly={!isAdmin} />
-        {isAdmin && <HolidayManager holidays={store.holidays ?? []} onAdd={addHoliday} onRemove={removeHoliday} />}
+        {(isAdmin || (store.holidays?.length ?? 0) > 0) && (
+          <HolidayManager
+            holidays={store.holidays ?? []}
+            onAdd={addHoliday}
+            onRemove={removeHoliday}
+            readOnly={!isAdmin}
+          />
+        )}
 
         {/* Controls row: filter + view toggle */}
         <div className="flex items-center justify-between gap-4 flex-wrap">

@@ -6,9 +6,10 @@ interface Props {
   holidays: Holiday[];
   onAdd: (h: Omit<Holiday, 'id'>) => void;
   onRemove: (id: string) => void;
+  readOnly?: boolean;
 }
 
-export default function HolidayManager({ holidays, onAdd, onRemove }: Props) {
+export default function HolidayManager({ holidays, onAdd, onRemove, readOnly = false }: Props) {
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
   const [date, setDate] = useState('');
@@ -31,27 +32,34 @@ export default function HolidayManager({ holidays, onAdd, onRemove }: Props) {
     <section className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Company Holidays</h2>
+        {readOnly && (
+          <span className="text-[11px] text-gray-400 italic">Read-only · set by admin</span>
+        )}
       </div>
 
       <div className="flex flex-wrap gap-2 items-center">
         {sorted.length === 0 && !adding && (
-          <span className="text-sm text-gray-400">No holidays added yet.</span>
+          <span className="text-sm text-gray-400">
+            {readOnly ? 'No holidays set yet.' : 'No holidays added yet.'}
+          </span>
         )}
         {sorted.map(h => (
           <span key={h.id} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border bg-amber-50 text-amber-800 border-amber-200 text-sm">
             <span className="font-medium">{h.name}</span>
             <span className="text-xs text-amber-700/70">{format(parseISO(h.date), 'MMM d, yyyy')}</span>
-            <button
-              onClick={() => onRemove(h.id)}
-              className="opacity-50 hover:opacity-100 text-base leading-none transition-opacity"
-              title={`Remove ${h.name}`}
-            >
-              ×
-            </button>
+            {!readOnly && (
+              <button
+                onClick={() => onRemove(h.id)}
+                className="opacity-50 hover:opacity-100 text-base leading-none transition-opacity"
+                title={`Remove ${h.name}`}
+              >
+                ×
+              </button>
+            )}
           </span>
         ))}
 
-        {adding ? (
+        {!readOnly && (adding ? (
           <div className="flex items-center gap-2">
             <input
               autoFocus
@@ -84,7 +92,7 @@ export default function HolidayManager({ holidays, onAdd, onRemove }: Props) {
           >
             + Add Holiday
           </button>
-        )}
+        ))}
       </div>
     </section>
   );
