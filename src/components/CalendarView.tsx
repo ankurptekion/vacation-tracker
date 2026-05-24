@@ -23,6 +23,9 @@ interface Props { people: Person[]; vacations: Vacation[] }
 interface BarInfo {
   personIdx: number;
   personName: string;
+  startDate: string;
+  endDate: string;
+  note?: string;
   roundLeft: boolean;
   roundRight: boolean;
   showName: boolean;
@@ -66,6 +69,9 @@ export default function CalendarView({ people, vacations }: Props) {
       bars.push({
         personIdx: idx,
         personName: people[idx].name,
+        startDate: v.startDate,
+        endDate: v.endDate,
+        note: v.note,
         roundLeft:  isStart || isWeekStart,
         roundRight: isEnd   || isWeekEnd,
         showName:   isStart || isWeekStart,
@@ -165,19 +171,26 @@ export default function CalendarView({ people, vacations }: Props) {
               </div>
 
               <div className="flex flex-col gap-px px-0 flex-1">
-                {shown.map((bar, bi) => (
-                  <div
-                    key={bi}
-                    title={bar.personName}
-                    className={`h-[18px] leading-[18px] text-[10px] font-medium truncate px-1.5
-                      ${BAR_COLORS[bar.personIdx % BAR_COLORS.length]}
-                      ${bar.roundLeft  ? 'rounded-l-full ml-1'  : '-ml-px'}
-                      ${bar.roundRight ? 'rounded-r-full mr-1' : '-mr-px'}
-                    `}
-                  >
-                    {bar.showName ? bar.personName : ' '}
-                  </div>
-                ))}
+                {shown.map((bar, bi) => {
+                  const range = `${format(parseISO(bar.startDate), 'MMM d')} – ${format(parseISO(bar.endDate), 'MMM d, yyyy')}`;
+                  const tip = `${bar.personName}\n${range}${bar.note ? `\n${bar.note}` : ''}`;
+                  return (
+                    <button
+                      key={bi}
+                      title={tip}
+                      onClick={() => setExpandedDay(day)}
+                      className={`h-[18px] leading-[18px] text-[10px] font-medium truncate px-1.5 cursor-pointer text-left hover:brightness-95
+                        ${BAR_COLORS[bar.personIdx % BAR_COLORS.length]}
+                        ${bar.roundLeft  ? 'rounded-l-full ml-1'  : '-ml-px'}
+                        ${bar.roundRight ? 'rounded-r-full mr-1' : '-mr-px'}
+                      `}
+                    >
+                      {bar.showName
+                        ? (bar.note ? `${bar.personName} · ${bar.note}` : bar.personName)
+                        : ' '}
+                    </button>
+                  );
+                })}
                 {extra > 0 && (
                   <button
                     onClick={() => setExpandedDay(day)}

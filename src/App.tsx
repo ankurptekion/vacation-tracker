@@ -60,9 +60,10 @@ function AppInner() {
 
   const togglePerson = (id: string) => {
     setHiddenIds(prev => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
+      const otherIds = store.people.filter(p => p.id !== id).map(p => p.id);
+      const isAlreadySolo = !prev.has(id) && otherIds.every(o => prev.has(o));
+      if (isAlreadySolo) return new Set();
+      return new Set(otherIds);
     });
   };
 
