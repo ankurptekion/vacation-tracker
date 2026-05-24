@@ -34,6 +34,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const password_hash = await hashPassword(password);
   await sql`INSERT INTO users (id, username, password_hash) VALUES (${id}, ${username}, ${password_hash})`;
 
-  const token = await signToken(id, username);
+  const token = signToken(id, username);
   return res.json({ token, username });
 }

@@ -1,13 +1,15 @@
 import { createHmac, randomBytes, scrypt, timingSafeEqual } from 'crypto';
 import { promisify } from 'util';
-import { SignJWT, jwtVerify } from 'jose';
 import type { VercelRequest } from '@vercel/node';
 
 const scryptAsync = promisify(scrypt);
 
-function getSecret(): Uint8Array {
-  const s = process.env.JWT_SECRET ?? process.env.DATABASE_URL ?? 'fallback-secret';
-  return new TextEncoder().encode(s);
+function b64url(buf: Buffer): string {
+  return buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+function getSecret(): string {
+  return process.env.JWT_SECRET ?? process.env.DATABASE_URL ?? 'fallback-secret';
 }
 
 export async function hashPassword(password: string): Promise<string> {
@@ -25,27 +27,34 @@ export async function verifyPassword(password: string, stored: string): Promise<
   return timingSafeEqual(hashBuf, derived);
 }
 
-export async function signToken(userId: string, username: string): Promise<string> {
-  return new SignJWT({ username })
-    .setProtectedHeader({ alg: 'HS256' })
-    .setSubject(userId)
-    .setIssuedAt()
-    .setExpirationTime('7d')
-    .sign(getSecret());
+export function signToken(userId: string, username: string): string {
+  const header  = b64url(Buffer.from(JSON.stringify({ alg: 'HS256', typ: 'JWT' })));
+  const payload = b64url(Buffer.from(JSON.stringify({
+    sub: userId,
+    username,
+    iat: Math.floor(Date.now() / 1000),
+    exp: Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60,
+  })));
+  const sig = b64url(createHmac('sha256', getSecret()).update(`${header}.${payload}`).digest());
+  return `${header}.${payload}.${sig}`;
 }
 
-export async function verifyToken(token: string): Promise<{ sub: string; username: string } | null> {
+export function verifyToken(token: string): { sub: string; username: string } | null {
   try {
-    const { payload } = await jwtVerify(token, getSecret());
-    return { sub: payload.sub as string, username: payload['username'] as string };
+    const [header, payload, sig] = token.split('.');
+    if (!header || !payload || !sig) return null;
+    const expected = b64url(createHmac('sha256', getSecret()).update(`${header}.${payload}`).digest());
+    if (expected !== sig) return null;
+    const data = JSON.parse(Buffer.from(payload, 'base64url').toString()) as { sub: string; username: string; exp: number };
+    if (data.exp < Math.floor(Date.now() / 1000)) return null;
+    return { sub: data.sub, username: data.username };
   } catch {
     return null;
   }
 }
 
-export async function getAuthUser(req: VercelRequest): Promise<{ sub: string; username: string } | null> {
-  const auth = req.headers['authorization'] ?? '';
+export function getAuthUser(req: VercelRequest): { sub: string; username: string } | null {
+  const auth = (req.headers['authorization'] as string) ?? '';
   if (!auth.startsWith('Bearer ')) return null;
-  const token = auth.slice(7);
-  return verifyToken(token);
+  return verifyToken(auth.slice(7));
 }

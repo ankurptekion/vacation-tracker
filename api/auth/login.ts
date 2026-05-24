@@ -30,6 +30,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const ok = await verifyPassword(password, user.password_hash);
   if (!ok) return res.status(401).json({ error: 'Invalid credentials' });
 
-  const token = await signToken(user.id, username);
+  const token = signToken(user.id, username);
   return res.json({ token, username });
 }

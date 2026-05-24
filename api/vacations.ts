@@ -27,7 +27,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(500).json({ error: 'DATABASE_URL is not set. Add Neon storage in your Vercel project.' });
   }
 
-  const user = await getAuthUser(req);
+  const user = getAuthUser(req);
   if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
