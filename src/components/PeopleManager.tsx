@@ -12,9 +12,14 @@ export const PERSON_COLORS = [
   'bg-amber-100 text-amber-700 border-amber-200',
 ];
 
-interface Props { people: Person[]; onAdd: (name: string) => void; onRemove: (id: string) => void }
+interface Props {
+  people: Person[];
+  onAdd: (name: string) => void;
+  onRemove: (id: string) => void;
+  readOnly?: boolean;
+}
 
-export default function PeopleManager({ people, onAdd, onRemove }: Props) {
+export default function PeopleManager({ people, onAdd, onRemove, readOnly = false }: Props) {
   const [newName, setNewName] = useState('');
   const [adding, setAdding] = useState(false);
 
@@ -27,15 +32,25 @@ export default function PeopleManager({ people, onAdd, onRemove }: Props) {
 
   return (
     <section className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
-      <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Team Members</h2>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Team Members</h2>
+        {readOnly && (
+          <span className="text-[11px] text-gray-400 italic">Read-only · ask an admin to manage</span>
+        )}
+      </div>
       <div className="flex flex-wrap gap-2 items-center">
+        {people.length === 0 && readOnly && (
+          <span className="text-sm text-gray-400">No team members yet — ask an admin to add them.</span>
+        )}
         {people.map((p, i) => (
           <span key={p.id} className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full border text-sm font-medium ${PERSON_COLORS[i % PERSON_COLORS.length]}`}>
             {p.name}
-            <button onClick={() => onRemove(p.id)} className="ml-0.5 opacity-40 hover:opacity-100 transition-opacity text-base leading-none" title={`Remove ${p.name}`}>×</button>
+            {!readOnly && (
+              <button onClick={() => onRemove(p.id)} className="ml-0.5 opacity-40 hover:opacity-100 transition-opacity text-base leading-none" title={`Remove ${p.name}`}>×</button>
+            )}
           </span>
         ))}
-        {adding ? (
+        {!readOnly && (adding ? (
           <div className="flex items-center gap-2">
             <input autoFocus value={newName} onChange={e => setNewName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') cancel(); }}
@@ -47,7 +62,7 @@ export default function PeopleManager({ people, onAdd, onRemove }: Props) {
           <button onClick={() => setAdding(true)} className="inline-flex items-center gap-1 px-3 py-1.5 rounded-full border border-dashed border-gray-300 text-sm text-gray-400 hover:border-sky-400 hover:text-sky-600 transition-colors">
             + Add Person
           </button>
-        )}
+        ))}
       </div>
     </section>
   );

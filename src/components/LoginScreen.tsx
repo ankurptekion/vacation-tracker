@@ -23,7 +23,7 @@ export default function LoginScreen() {
         setError(data.error ?? 'Something went wrong');
         return;
       }
-      login(data.token, data.username);
+      login(data.token, data.username, data.role);
     } catch {
       setError('Network error — please try again');
     } finally {
@@ -38,6 +38,10 @@ export default function LoginScreen() {
           <div className="text-4xl mb-3">✈️</div>
           <h1 className="text-2xl font-bold text-gray-900">Team Vacation Tracker</h1>
           <p className="text-sm text-gray-400 mt-1">Plan time off together</p>
+          <p className="text-[11px] text-gray-400 mt-3">
+            <span className="font-medium text-gray-500">admin / admin</span> to manage team ·{' '}
+            <span className="font-medium text-gray-500">user / user</span> to log vacations
+          </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

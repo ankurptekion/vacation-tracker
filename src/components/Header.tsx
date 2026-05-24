@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext';
 interface Props { syncing: boolean; lastSynced: Date | null; error: string | null }
 
 export default function Header({ syncing, lastSynced, error }: Props) {
-  const { username, logout } = useAuth();
+  const { username, role, logout } = useAuth();
 
   return (
     <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
@@ -25,8 +25,17 @@ export default function Header({ syncing, lastSynced, error }: Props) {
           </div>
           {username && (
             <div className="flex items-center gap-2">
-              <span className="bg-sky-50 text-sky-700 border border-sky-100 px-3 py-1 rounded-full text-xs font-medium">
+              <span className="bg-sky-50 text-sky-700 border border-sky-100 px-3 py-1 rounded-full text-xs font-medium flex items-center gap-1.5">
                 {username}
+                {role && (
+                  <span className={`text-[10px] uppercase tracking-wider font-semibold px-1.5 py-0.5 rounded ${
+                    role === 'admin'
+                      ? 'bg-purple-100 text-purple-700'
+                      : 'bg-gray-100 text-gray-500'
+                  }`}>
+                    {role}
+                  </span>
+                )}
               </span>
               <button
                 onClick={logout}

@@ -8,6 +8,7 @@ function authHeaders(): HeadersInit {
 function handle401() {
   localStorage.removeItem('vt_token');
   localStorage.removeItem('vt_username');
+  localStorage.removeItem('vt_role');
   window.location.reload();
 }
 

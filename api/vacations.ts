@@ -6,7 +6,9 @@ interface Person { id: string; name: string }
 interface Vacation { id: string; personId: string; startDate: string; endDate: string; note?: string }
 interface VacationStore { people: Person[]; vacations: Vacation[]; lastUpdated?: string }
 
-function verifyToken(token: string): { sub: string; username: string } | null {
+type AuthUser = { sub: string; username: string; role: 'admin' | 'user' };
+
+function verifyToken(token: string): AuthUser | null {
   try {
     const [header, payload, sig] = token.split('.');
     if (!header || !payload || !sig) return null;
@@ -15,15 +17,15 @@ function verifyToken(token: string): { sub: string; username: string } | null {
       createHmac('sha256', secret).update(`${header}.${payload}`).digest()
     ).toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
     if (expected !== sig) return null;
-    const data = JSON.parse(Buffer.from(payload, 'base64url').toString()) as { sub: string; username: string; exp: number };
+    const data = JSON.parse(Buffer.from(payload, 'base64url').toString()) as AuthUser & { exp: number };
     if (data.exp < Math.floor(Date.now() / 1000)) return null;
-    return { sub: data.sub, username: data.username };
+    return { sub: data.sub, username: data.username, role: data.role ?? 'user' };
   } catch {
     return null;
   }
 }
 
-function getAuthUser(req: VercelRequest): { sub: string; username: string } | null {
+function getAuthUser(req: VercelRequest): AuthUser | null {
   const auth = (req.headers['authorization'] as string) ?? '';
   if (!auth.startsWith('Bearer ')) return null;
   return verifyToken(auth.slice(7));
@@ -45,6 +47,13 @@ async function db() {
   return sql;
 }
 
+function samePeople(a: Person[], b: Person[]): boolean {
+  if (a.length !== b.length) return false;
+  const sa = [...a].sort((x, y) => x.id.localeCompare(y.id));
+  const sb = [...b].sort((x, y) => x.id.localeCompare(y.id));
+  return sa.every((p, i) => p.id === sb[i].id && p.name === sb[i].name);
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!process.env.DATABASE_URL) {
     return res.status(500).json({ error: 'DATABASE_URL is not set. Add Neon storage in your Vercel project.' });
@@ -62,7 +71,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (req.method === 'PUT') {
-      const store: VacationStore = { ...(req.body as VacationStore), lastUpdated: new Date().toISOString() };
+      const incoming = req.body as VacationStore;
+
+      if (user.role !== 'admin') {
+        const rows = await sql`SELECT data FROM vacation_data WHERE id = 'singleton'`;
+        const existing = (rows[0]?.data ?? { people: [], vacations: [] }) as VacationStore;
+        if (!samePeople(incoming.people ?? [], existing.people ?? [])) {
+          return res.status(403).json({ error: 'Only admin can add or remove team members' });
+        }
+      }
+
+      const store: VacationStore = { ...incoming, lastUpdated: new Date().toISOString() };
       const json = JSON.stringify(store);
       await sql`
         INSERT INTO vacation_data (id, data) VALUES ('singleton', ${json})

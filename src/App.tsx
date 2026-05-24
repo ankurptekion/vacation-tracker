@@ -11,7 +11,7 @@ import AddVacationModal from './components/AddVacationModal';
 import LoginScreen from './components/LoginScreen';
 
 function AppInner() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isAdmin } = useAuth();
   const [store, setStore] = useState<VacationStore>({ people: [], vacations: [] });
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -77,7 +77,7 @@ function AppInner() {
     <div className="min-h-screen bg-gray-50">
       <Header syncing={syncing} lastSynced={lastSynced} error={error} />
       <main className="max-w-4xl mx-auto px-4 py-8 space-y-5">
-        <PeopleManager people={store.people} onAdd={addPerson} onRemove={removePerson} />
+        <PeopleManager people={store.people} onAdd={addPerson} onRemove={removePerson} readOnly={!isAdmin} />
 
         {/* Controls row: filter + view toggle */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
