@@ -85,6 +85,16 @@ function AppInner() {
           {store.people.length > 0 && (
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs text-gray-400 font-medium">Show:</span>
+              <button
+                onClick={() => setHiddenIds(new Set())}
+                className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
+                  hiddenIds.size === 0
+                    ? 'bg-sky-500 text-white border-sky-500'
+                    : 'bg-white text-gray-500 border-gray-200 hover:border-sky-300 hover:text-sky-600'
+                }`}
+              >
+                All
+              </button>
               {store.people.map((p, i) => {
                 const active = !hiddenIds.has(p.id);
                 return (
