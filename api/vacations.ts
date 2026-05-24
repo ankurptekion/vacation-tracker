@@ -4,7 +4,8 @@ import { createHmac } from 'crypto';
 
 interface Person { id: string; name: string }
 interface Vacation { id: string; personId: string; startDate: string; endDate: string; note?: string }
-interface VacationStore { people: Person[]; vacations: Vacation[]; lastUpdated?: string }
+interface Holiday { id: string; name: string; date: string }
+interface VacationStore { people: Person[]; vacations: Vacation[]; holidays?: Holiday[]; lastUpdated?: string }
 
 type AuthUser = { sub: string; username: string; role: 'admin' | 'user' };
 
@@ -54,6 +55,13 @@ function samePeople(a: Person[], b: Person[]): boolean {
   return sa.every((p, i) => p.id === sb[i].id && p.name === sb[i].name);
 }
 
+function sameHolidays(a: Holiday[], b: Holiday[]): boolean {
+  if (a.length !== b.length) return false;
+  const sa = [...a].sort((x, y) => x.id.localeCompare(y.id));
+  const sb = [...b].sort((x, y) => x.id.localeCompare(y.id));
+  return sa.every((h, i) => h.id === sb[i].id && h.name === sb[i].name && h.date === sb[i].date);
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!process.env.DATABASE_URL) {
     return res.status(500).json({ error: 'DATABASE_URL is not set. Add Neon storage in your Vercel project.' });
@@ -75,9 +83,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       if (user.role !== 'admin') {
         const rows = await sql`SELECT data FROM vacation_data WHERE id = 'singleton'`;
-        const existing = (rows[0]?.data ?? { people: [], vacations: [] }) as VacationStore;
+        const existing = (rows[0]?.data ?? { people: [], vacations: [], holidays: [] }) as VacationStore;
         if (!samePeople(incoming.people ?? [], existing.people ?? [])) {
           return res.status(403).json({ error: 'Only admin can add or remove team members' });
+        }
+        if (!sameHolidays(incoming.holidays ?? [], existing.holidays ?? [])) {
+          return res.status(403).json({ error: 'Only admin can manage holidays' });
         }
       }
 

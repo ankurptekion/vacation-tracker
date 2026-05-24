@@ -3,7 +3,7 @@ import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
   isToday, getDay, parseISO, addMonths, subMonths,
 } from 'date-fns';
-import type { Person, Vacation } from '../types';
+import type { Person, Vacation, Holiday } from '../types';
 
 const BAR_COLORS = [
   'bg-blue-100 text-blue-700',
@@ -18,7 +18,7 @@ const BAR_COLORS = [
 
 const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
-interface Props { people: Person[]; vacations: Vacation[] }
+interface Props { people: Person[]; vacations: Vacation[]; holidays?: Holiday[] }
 
 interface BarInfo {
   personIdx: number;
@@ -39,7 +39,8 @@ interface DayDetail {
   note?: string;
 }
 
-export default function CalendarView({ people, vacations }: Props) {
+export default function CalendarView({ people, vacations, holidays = [] }: Props) {
+  const holidayByDate = new Map(holidays.map(h => [h.date, h]));
   const [current, setCurrent] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -156,19 +157,30 @@ export default function CalendarView({ people, vacations }: Props) {
           const shown = bars.slice(0, 3);
           const extra = bars.length - shown.length;
           const todayDay = isToday(day);
+          const holiday  = holidayByDate.get(format(day, 'yyyy-MM-dd'));
+          const cellBg   = holiday ? 'bg-amber-50' : (isWeekend ? 'bg-gray-50' : 'bg-white');
 
           return (
             <div
               key={day.toISOString()}
-              className={`min-h-[80px] border-r border-b border-gray-100 pt-1.5 pb-1 flex flex-col ${isWeekend ? 'bg-gray-50' : 'bg-white'}`}
+              className={`min-h-[80px] border-r border-b border-gray-100 pt-1.5 pb-1 flex flex-col ${cellBg}`}
             >
               <div className="flex justify-center mb-1 px-1">
                 <span className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded-full ${
-                  todayDay ? 'bg-sky-500 text-white' : 'text-gray-600'
+                  todayDay ? 'bg-sky-500 text-white' : holiday ? 'text-amber-800' : 'text-gray-600'
                 }`}>
                   {format(day, 'd')}
                 </span>
               </div>
+
+              {holiday && (
+                <div
+                  className="mx-1 mb-px text-[10px] font-semibold leading-[18px] text-amber-800 bg-amber-100 rounded px-1.5 truncate"
+                  title={holiday.name}
+                >
+                  {holiday.name}
+                </div>
+              )}
 
               <div className="flex flex-col gap-px px-0 flex-1">
                 {shown.map((bar, bi) => {
@@ -222,6 +234,7 @@ export default function CalendarView({ people, vacations }: Props) {
       {expandedDay && (
         <DayDetailsModal
           day={expandedDay}
+          holiday={holidayByDate.get(format(expandedDay, 'yyyy-MM-dd'))}
           details={getDayDetails(expandedDay)}
           onClose={() => setExpandedDay(null)}
         />
@@ -230,7 +243,7 @@ export default function CalendarView({ people, vacations }: Props) {
   );
 }
 
-function DayDetailsModal({ day, details, onClose }: { day: Date; details: DayDetail[]; onClose: () => void }) {
+function DayDetailsModal({ day, holiday, details, onClose }: { day: Date; holiday?: Holiday; details: DayDetail[]; onClose: () => void }) {
   return (
     <div
       className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-40 p-4"
@@ -245,6 +258,15 @@ function DayDetailsModal({ day, details, onClose }: { day: Date; details: DayDet
           <button onClick={onClose} className="text-gray-300 hover:text-gray-500 text-2xl leading-none">×</button>
         </div>
         <div className="p-4 space-y-2 max-h-[60vh] overflow-y-auto">
+          {holiday && (
+            <div className="flex items-center gap-3 p-2.5 rounded-lg bg-amber-50 border border-amber-200">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-700 bg-amber-100 px-2 py-0.5 rounded">Holiday</span>
+              <span className="text-sm font-medium text-amber-900">{holiday.name}</span>
+            </div>
+          )}
+          {details.length === 0 && !holiday && (
+            <p className="text-sm text-gray-400 text-center py-4">Nothing scheduled.</p>
+          )}
           {details.map((d, i) => (
             <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg bg-gray-50 border border-gray-100">
               <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${BAR_COLORS[d.personIdx % BAR_COLORS.length]}`}>

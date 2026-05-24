@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Person, Vacation, VacationStore } from './types';
+import type { Holiday, Person, Vacation, VacationStore } from './types';
 import { fetchVacations, saveVacations } from './lib/api';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Header from './components/Header';
@@ -9,10 +9,12 @@ import VacationTimeline from './components/VacationTimeline';
 import CalendarView from './components/CalendarView';
 import AddVacationModal from './components/AddVacationModal';
 import LoginScreen from './components/LoginScreen';
+import SummaryCard from './components/SummaryCard';
+import HolidayManager from './components/HolidayManager';
 
 function AppInner() {
   const { isAuthenticated, isAdmin } = useAuth();
-  const [store, setStore] = useState<VacationStore>({ people: [], vacations: [] });
+  const [store, setStore] = useState<VacationStore>({ people: [], vacations: [], holidays: [] });
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -20,11 +22,11 @@ function AppInner() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState<Vacation | null>(null);
   const [view, setView] = useState<'timeline' | 'calendar'>('timeline');
-  const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!isAuthenticated) { setLoading(false); return; }
-    fetchVacations().then(d => { setStore(d); setLastSynced(new Date()); })
+    fetchVacations().then(d => { setStore({ holidays: [], ...d }); setLastSynced(new Date()); })
       .catch(e => setError((e as Error).message)).finally(() => setLoading(false));
   }, [isAuthenticated]);
 
@@ -42,7 +44,7 @@ function AppInner() {
   const removePerson = (id: string) => {
     const next = { ...store, people: store.people.filter(p => p.id !== id), vacations: store.vacations.filter(v => v.personId !== id) };
     setStore(next); void persist(next);
-    setHiddenIds(prev => { const s = new Set(prev); s.delete(id); return s; });
+    setSelectedIds(prev => { const s = new Set(prev); s.delete(id); return s; });
   };
   const saveVacation = (v: Omit<Vacation, 'id'>) => {
     const overlap = store.vacations.find(existing =>
@@ -66,15 +68,28 @@ function AppInner() {
   const openEdit = (v: Vacation) => { setEditing(v); setShowModal(true); };
   const closeModal = () => { setShowModal(false); setEditing(null); };
 
+  const addHoliday = (h: Omit<Holiday, 'id'>) => {
+    const holidays = store.holidays ?? [];
+    if (holidays.some(x => x.date === h.date)) return;
+    const next = { ...store, holidays: [...holidays, { ...h, id: crypto.randomUUID() }] };
+    setStore(next); void persist(next);
+  };
+  const removeHoliday = (id: string) => {
+    const next = { ...store, holidays: (store.holidays ?? []).filter(h => h.id !== id) };
+    setStore(next); void persist(next);
+  };
+
   const togglePerson = (id: string) => {
-    setHiddenIds(prev => {
+    setSelectedIds(prev => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
       return next;
     });
   };
 
-  const visibleVacations = store.vacations.filter(v => !hiddenIds.has(v.personId));
+  const visibleVacations = selectedIds.size === 0
+    ? store.vacations
+    : store.vacations.filter(v => selectedIds.has(v.personId));
 
   if (!isAuthenticated) return <LoginScreen />;
 
@@ -91,7 +106,9 @@ function AppInner() {
     <div className="min-h-screen bg-gray-50">
       <Header syncing={syncing} lastSynced={lastSynced} error={error} />
       <main className="max-w-4xl mx-auto px-4 py-8 space-y-5">
+        {isAdmin && <SummaryCard people={store.people} vacations={store.vacations} />}
         <PeopleManager people={store.people} onAdd={addPerson} onRemove={removePerson} readOnly={!isAdmin} />
+        {isAdmin && <HolidayManager holidays={store.holidays ?? []} onAdd={addHoliday} onRemove={removeHoliday} />}
 
         {/* Controls row: filter + view toggle */}
         <div className="flex items-center justify-between gap-4 flex-wrap">
@@ -100,9 +117,9 @@ function AppInner() {
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs text-gray-400 font-medium">Show:</span>
               <button
-                onClick={() => setHiddenIds(new Set())}
+                onClick={() => setSelectedIds(new Set())}
                 className={`px-3 py-1 rounded-full text-xs font-medium border transition-all ${
-                  hiddenIds.size === 0
+                  selectedIds.size === 0
                     ? 'bg-sky-500 text-white border-sky-500'
                     : 'bg-white text-gray-500 border-gray-200 hover:border-sky-300 hover:text-sky-600'
                 }`}
@@ -110,7 +127,7 @@ function AppInner() {
                 All
               </button>
               {store.people.map((p, i) => {
-                const active = !hiddenIds.has(p.id);
+                const active = selectedIds.has(p.id);
                 return (
                   <button
                     key={p.id}
@@ -152,7 +169,7 @@ function AppInner() {
         {view === 'timeline' ? (
           <VacationTimeline people={store.people} vacations={visibleVacations} onRemove={removeVacation} onEdit={openEdit} onAdd={openAdd} />
         ) : (
-          <CalendarView people={store.people} vacations={visibleVacations} />
+          <CalendarView people={store.people} vacations={visibleVacations} holidays={store.holidays ?? []} />
         )}
       </main>
       {showModal && (
