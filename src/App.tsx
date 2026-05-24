@@ -18,6 +18,7 @@ function AppInner() {
   const [error, setError] = useState<string | null>(null);
   const [lastSynced, setLastSynced] = useState<Date | null>(null);
   const [showModal, setShowModal] = useState(false);
+  const [editing, setEditing] = useState<Vacation | null>(null);
   const [view, setView] = useState<'timeline' | 'calendar'>('timeline');
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
 
@@ -43,27 +44,33 @@ function AppInner() {
     setStore(next); void persist(next);
     setHiddenIds(prev => { const s = new Set(prev); s.delete(id); return s; });
   };
-  const addVacation = (v: Omit<Vacation, 'id'>) => {
+  const saveVacation = (v: Omit<Vacation, 'id'>) => {
     const overlap = store.vacations.find(existing =>
+      existing.id !== editing?.id &&
       existing.personId === v.personId &&
       existing.startDate <= v.endDate &&
       existing.endDate >= v.startDate
     );
     if (overlap) return;
-    const next = { ...store, vacations: [...store.vacations, { ...v, id: crypto.randomUUID() }] };
-    setStore(next); void persist(next); setShowModal(false);
+    const next = editing
+      ? { ...store, vacations: store.vacations.map(x => x.id === editing.id ? { ...v, id: editing.id } : x) }
+      : { ...store, vacations: [...store.vacations, { ...v, id: crypto.randomUUID() }] };
+    setStore(next); void persist(next);
+    setShowModal(false); setEditing(null);
   };
   const removeVacation = (id: string) => {
     const next = { ...store, vacations: store.vacations.filter(v => v.id !== id) };
     setStore(next); void persist(next);
   };
+  const openAdd  = () => { setEditing(null); setShowModal(true); };
+  const openEdit = (v: Vacation) => { setEditing(v); setShowModal(true); };
+  const closeModal = () => { setShowModal(false); setEditing(null); };
 
   const togglePerson = (id: string) => {
     setHiddenIds(prev => {
-      const otherIds = store.people.filter(p => p.id !== id).map(p => p.id);
-      const isAlreadySolo = !prev.has(id) && otherIds.every(o => prev.has(o));
-      if (isAlreadySolo) return new Set();
-      return new Set(otherIds);
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
     });
   };
 
@@ -143,12 +150,20 @@ function AppInner() {
         </div>
 
         {view === 'timeline' ? (
-          <VacationTimeline people={store.people} vacations={visibleVacations} onRemove={removeVacation} onAdd={() => setShowModal(true)} />
+          <VacationTimeline people={store.people} vacations={visibleVacations} onRemove={removeVacation} onEdit={openEdit} onAdd={openAdd} />
         ) : (
           <CalendarView people={store.people} vacations={visibleVacations} />
         )}
       </main>
-      {showModal && <AddVacationModal people={store.people} vacations={store.vacations} onAdd={addVacation} onClose={() => setShowModal(false)} />}
+      {showModal && (
+        <AddVacationModal
+          people={store.people}
+          vacations={store.vacations}
+          initial={editing ?? undefined}
+          onSave={saveVacation}
+          onClose={closeModal}
+        />
+      )}
     </div>
   );
 }

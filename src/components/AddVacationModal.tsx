@@ -8,30 +8,37 @@ import type { Person, Vacation } from '../types';
 interface Props {
   people: Person[];
   vacations: Vacation[];
-  onAdd: (v: Omit<Vacation, 'id'>) => void;
+  initial?: Vacation;
+  onSave: (v: Omit<Vacation, 'id'>) => void;
   onClose: () => void;
 }
 
-export default function AddVacationModal({ people, vacations, onAdd, onClose }: Props) {
-  const [personId, setPersonId] = useState(people[0]?.id ?? '');
-  const [range, setRange] = useState<DateRange>();
-  const [note, setNote] = useState('');
+export default function AddVacationModal({ people, vacations, initial, onSave, onClose }: Props) {
+  const isEdit = !!initial;
+  const [personId, setPersonId] = useState(initial?.personId ?? people[0]?.id ?? '');
+  const [range, setRange]       = useState<DateRange | undefined>(
+    initial ? { from: parseISO(initial.startDate), to: parseISO(initial.endDate) } : undefined
+  );
+  const [note, setNote]         = useState(initial?.note ?? '');
 
   const overlap = useMemo<Vacation | null>(() => {
     if (!personId || !range?.from || !range?.to) return null;
     const start = format(range.from, 'yyyy-MM-dd');
     const end   = format(range.to,   'yyyy-MM-dd');
     return vacations.find(v =>
-      v.personId === personId && v.startDate <= end && v.endDate >= start
+      v.id !== initial?.id &&
+      v.personId === personId &&
+      v.startDate <= end &&
+      v.endDate >= start
     ) ?? null;
-  }, [personId, range, vacations]);
+  }, [personId, range, vacations, initial?.id]);
 
   const personName = people.find(p => p.id === personId)?.name ?? '';
   const canSubmit  = personId && range?.from && range?.to && !overlap;
 
   const submit = () => {
     if (!canSubmit) return;
-    onAdd({
+    onSave({
       personId,
       startDate: format(range.from!, 'yyyy-MM-dd'),
       endDate:   format(range.to!,   'yyyy-MM-dd'),
@@ -43,7 +50,7 @@ export default function AddVacationModal({ people, vacations, onAdd, onClose }: 
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-gray-900">Add Vacation</h2>
+          <h2 className="text-lg font-semibold text-gray-900">{isEdit ? 'Edit Vacation' : 'Add Vacation'}</h2>
           <button onClick={onClose} className="text-gray-300 hover:text-gray-500 text-2xl leading-none">×</button>
         </div>
         <div className="p-6 space-y-5">
@@ -58,7 +65,13 @@ export default function AddVacationModal({ people, vacations, onAdd, onClose }: 
               Dates {range?.from && range?.to && <span className="ml-2 font-normal text-sky-600">{format(range.from,'MMM d')} – {format(range.to,'MMM d, yyyy')}</span>}
             </label>
             <div className="border border-gray-200 rounded-xl p-3 flex justify-center overflow-x-auto">
-              <DayPicker mode="range" selected={range} onSelect={setRange} numberOfMonths={2} fromDate={new Date()} />
+              <DayPicker
+                mode="range"
+                selected={range}
+                onSelect={setRange}
+                numberOfMonths={2}
+                fromDate={isEdit ? undefined : new Date()}
+              />
             </div>
           </div>
           {overlap && (
@@ -76,7 +89,9 @@ export default function AddVacationModal({ people, vacations, onAdd, onClose }: 
         </div>
         <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
           <button onClick={onClose} className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 font-medium">Cancel</button>
-          <button onClick={submit} disabled={!canSubmit} className="bg-sky-500 text-white rounded-lg px-5 py-2 text-sm font-medium hover:bg-sky-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">Add Vacation</button>
+          <button onClick={submit} disabled={!canSubmit} className="bg-sky-500 text-white rounded-lg px-5 py-2 text-sm font-medium hover:bg-sky-600 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+            {isEdit ? 'Save Changes' : 'Add Vacation'}
+          </button>
         </div>
       </div>
     </div>

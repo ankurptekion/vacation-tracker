@@ -16,9 +16,15 @@ function groupByMonth(vs: Vacation[]) {
   }));
 }
 
-interface Props { people: Person[]; vacations: Vacation[]; onRemove:(id:string)=>void; onAdd:()=>void }
+interface Props {
+  people: Person[];
+  vacations: Vacation[];
+  onRemove: (id: string) => void;
+  onEdit: (v: Vacation) => void;
+  onAdd: () => void;
+}
 
-export default function VacationTimeline({ people, vacations, onRemove, onAdd }: Props) {
+export default function VacationTimeline({ people, vacations, onRemove, onEdit, onAdd }: Props) {
   const today = format(new Date(), 'yyyy-MM-dd');
   const upcoming = vacations.filter(v => v.endDate >= today);
   const past     = vacations.filter(v => v.endDate <  today);
@@ -43,12 +49,12 @@ export default function VacationTimeline({ people, vacations, onRemove, onAdd }:
         </div>
       ) : (
         <div className="space-y-8">
-          {groupByMonth(upcoming).map(g => <MonthGroup key={g.label} group={g} idx={idx} name={name} onRemove={onRemove} />)}
+          {groupByMonth(upcoming).map(g => <MonthGroup key={g.label} group={g} idx={idx} name={name} onRemove={onRemove} onEdit={onEdit} />)}
           {past.length > 0 && (
             <div>
               <p className="text-xs font-semibold text-gray-300 uppercase tracking-wider mb-4">Past</p>
               <div className="space-y-5 opacity-50">
-                {groupByMonth(past).map(g => <MonthGroup key={g.label} group={g} idx={idx} name={name} onRemove={onRemove} />)}
+                {groupByMonth(past).map(g => <MonthGroup key={g.label} group={g} idx={idx} name={name} onRemove={onRemove} onEdit={onEdit} />)}
               </div>
             </div>
           )}
@@ -58,11 +64,12 @@ export default function VacationTimeline({ people, vacations, onRemove, onAdd }:
   );
 }
 
-function MonthGroup({ group, idx, name, onRemove }: {
+function MonthGroup({ group, idx, name, onRemove, onEdit }: {
   group: { label: string; items: Vacation[] };
   idx: (id: string) => number;
   name: (id: string) => string;
   onRemove: (id: string) => void;
+  onEdit: (v: Vacation) => void;
 }) {
   return (
     <div>
@@ -82,7 +89,22 @@ function MonthGroup({ group, idx, name, onRemove }: {
                 <p className="text-sm text-gray-600 mt-0.5">{format(parseISO(v.startDate), 'MMM d')} – {format(parseISO(v.endDate), 'MMM d, yyyy')}</p>
                 {v.note && <p className="text-xs text-gray-400 mt-0.5">{v.note}</p>}
               </div>
-              <button onClick={() => onRemove(v.id)} className="opacity-0 group-hover:opacity-100 text-gray-300 hover:text-red-400 transition-all text-xl px-1" title="Remove">×</button>
+              <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                <button
+                  onClick={() => onEdit(v)}
+                  className="text-gray-400 hover:text-sky-500 text-sm px-2 py-1 rounded hover:bg-sky-50 transition-colors"
+                  title="Edit"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={() => onRemove(v.id)}
+                  className="text-gray-300 hover:text-red-400 text-xl leading-none px-1.5"
+                  title="Remove"
+                >
+                  ×
+                </button>
+              </div>
             </div>
           );
         })}
