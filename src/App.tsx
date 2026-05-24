@@ -44,6 +44,12 @@ function AppInner() {
     setHiddenIds(prev => { const s = new Set(prev); s.delete(id); return s; });
   };
   const addVacation = (v: Omit<Vacation, 'id'>) => {
+    const overlap = store.vacations.find(existing =>
+      existing.personId === v.personId &&
+      existing.startDate <= v.endDate &&
+      existing.endDate >= v.startDate
+    );
+    if (overlap) return;
     const next = { ...store, vacations: [...store.vacations, { ...v, id: crypto.randomUUID() }] };
     setStore(next); void persist(next); setShowModal(false);
   };
@@ -141,7 +147,7 @@ function AppInner() {
           <CalendarView people={store.people} vacations={visibleVacations} />
         )}
       </main>
-      {showModal && <AddVacationModal people={store.people} onAdd={addVacation} onClose={() => setShowModal(false)} />}
+      {showModal && <AddVacationModal people={store.people} vacations={store.vacations} onAdd={addVacation} onClose={() => setShowModal(false)} />}
     </div>
   );
 }

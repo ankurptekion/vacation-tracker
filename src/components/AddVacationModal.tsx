@@ -1,22 +1,42 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { DayPicker } from 'react-day-picker';
 import type { DateRange } from 'react-day-picker';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import 'react-day-picker/dist/style.css';
 import type { Person, Vacation } from '../types';
 
-interface Props { people: Person[]; onAdd: (v: Omit<Vacation, 'id'>) => void; onClose: () => void }
+interface Props {
+  people: Person[];
+  vacations: Vacation[];
+  onAdd: (v: Omit<Vacation, 'id'>) => void;
+  onClose: () => void;
+}
 
-export default function AddVacationModal({ people, onAdd, onClose }: Props) {
+export default function AddVacationModal({ people, vacations, onAdd, onClose }: Props) {
   const [personId, setPersonId] = useState(people[0]?.id ?? '');
   const [range, setRange] = useState<DateRange>();
   const [note, setNote] = useState('');
 
-  const canSubmit = personId && range?.from && range?.to;
+  const overlap = useMemo<Vacation | null>(() => {
+    if (!personId || !range?.from || !range?.to) return null;
+    const start = format(range.from, 'yyyy-MM-dd');
+    const end   = format(range.to,   'yyyy-MM-dd');
+    return vacations.find(v =>
+      v.personId === personId && v.startDate <= end && v.endDate >= start
+    ) ?? null;
+  }, [personId, range, vacations]);
+
+  const personName = people.find(p => p.id === personId)?.name ?? '';
+  const canSubmit  = personId && range?.from && range?.to && !overlap;
 
   const submit = () => {
     if (!canSubmit) return;
-    onAdd({ personId, startDate: format(range.from!, 'yyyy-MM-dd'), endDate: format(range.to!, 'yyyy-MM-dd'), note: note.trim() || undefined });
+    onAdd({
+      personId,
+      startDate: format(range.from!, 'yyyy-MM-dd'),
+      endDate:   format(range.to!,   'yyyy-MM-dd'),
+      note: note.trim() || undefined,
+    });
   };
 
   return (
@@ -41,6 +61,14 @@ export default function AddVacationModal({ people, onAdd, onClose }: Props) {
               <DayPicker mode="range" selected={range} onSelect={setRange} numberOfMonths={2} fromDate={new Date()} />
             </div>
           </div>
+          {overlap && (
+            <div className="bg-red-50 border border-red-100 text-red-700 text-sm rounded-lg px-3 py-2.5">
+              <span className="font-medium">{personName}</span> already has a vacation from{' '}
+              <span className="font-medium">{format(parseISO(overlap.startDate), 'MMM d')}</span> to{' '}
+              <span className="font-medium">{format(parseISO(overlap.endDate), 'MMM d, yyyy')}</span>{' '}
+              that overlaps these dates.
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1.5">Note <span className="font-normal text-gray-400">(optional)</span></label>
             <input value={note} onChange={e => setNote(e.target.value)} onKeyDown={e => e.key === 'Enter' && submit()} placeholder="e.g. Summer vacation" className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500" />

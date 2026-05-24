@@ -28,11 +28,20 @@ interface BarInfo {
   showName: boolean;
 }
 
+interface DayDetail {
+  personIdx: number;
+  personName: string;
+  startDate: string;
+  endDate: string;
+  note?: string;
+}
+
 export default function CalendarView({ people, vacations }: Props) {
   const [current, setCurrent] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
   });
+  const [expandedDay, setExpandedDay] = useState<Date | null>(null);
 
   const monthStart = startOfMonth(current);
   const monthEnd   = endOfMonth(current);
@@ -63,6 +72,24 @@ export default function CalendarView({ people, vacations }: Props) {
       });
     }
     return bars.sort((a, b) => a.personIdx - b.personIdx);
+  }
+
+  function getDayDetails(day: Date): DayDetail[] {
+    const dayStr = format(day, 'yyyy-MM-dd');
+    const details: DayDetail[] = [];
+    for (const v of vacations) {
+      if (v.startDate > dayStr || v.endDate < dayStr) continue;
+      const idx = people.findIndex(p => p.id === v.personId);
+      if (idx === -1) continue;
+      details.push({
+        personIdx: idx,
+        personName: people[idx].name,
+        startDate: v.startDate,
+        endDate: v.endDate,
+        note: v.note,
+      });
+    }
+    return details.sort((a, b) => a.personIdx - b.personIdx);
   }
 
   const monthStartStr = format(monthStart, 'yyyy-MM-dd');
@@ -97,7 +124,6 @@ export default function CalendarView({ people, vacations }: Props) {
 
       {/* Calendar grid */}
       <div className="grid grid-cols-7 border-l border-t border-gray-100 rounded-lg overflow-hidden">
-        {/* Weekday headers */}
         {WEEKDAYS.map((wd, i) => (
           <div
             key={wd}
@@ -107,7 +133,6 @@ export default function CalendarView({ people, vacations }: Props) {
           </div>
         ))}
 
-        {/* Day cells */}
         {gridCells.map((day, cellIdx) => {
           const col = cellIdx % 7;
           const isWeekend = col >= 5;
@@ -131,7 +156,6 @@ export default function CalendarView({ people, vacations }: Props) {
               key={day.toISOString()}
               className={`min-h-[80px] border-r border-b border-gray-100 pt-1.5 pb-1 flex flex-col ${isWeekend ? 'bg-gray-50' : 'bg-white'}`}
             >
-              {/* Date number */}
               <div className="flex justify-center mb-1 px-1">
                 <span className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded-full ${
                   todayDay ? 'bg-sky-500 text-white' : 'text-gray-600'
@@ -140,7 +164,6 @@ export default function CalendarView({ people, vacations }: Props) {
                 </span>
               </div>
 
-              {/* Event bars */}
               <div className="flex flex-col gap-px px-0 flex-1">
                 {shown.map((bar, bi) => (
                   <div
@@ -152,11 +175,16 @@ export default function CalendarView({ people, vacations }: Props) {
                       ${bar.roundRight ? 'rounded-r-full mr-1' : '-mr-px'}
                     `}
                   >
-                    {bar.showName ? bar.personName : ' '}
+                    {bar.showName ? bar.personName : ' '}
                   </div>
                 ))}
                 {extra > 0 && (
-                  <span className="text-[10px] text-gray-400 pl-2">+{extra} more</span>
+                  <button
+                    onClick={() => setExpandedDay(day)}
+                    className="text-[10px] text-gray-500 hover:text-sky-600 hover:bg-sky-50 rounded px-1 mt-px transition-colors text-left font-medium"
+                  >
+                    +{extra} more
+                  </button>
                 )}
               </div>
             </div>
@@ -176,6 +204,49 @@ export default function CalendarView({ people, vacations }: Props) {
           ))}
         </div>
       )}
+
+      {/* Day details popover */}
+      {expandedDay && (
+        <DayDetailsModal
+          day={expandedDay}
+          details={getDayDetails(expandedDay)}
+          onClose={() => setExpandedDay(null)}
+        />
+      )}
+    </div>
+  );
+}
+
+function DayDetailsModal({ day, details, onClose }: { day: Date; details: DayDetail[]; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-40 p-4"
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden">
+        <div className="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <div className="text-xs text-gray-400 font-medium uppercase tracking-wider">{format(day, 'EEEE')}</div>
+            <div className="text-base font-semibold text-gray-900">{format(day, 'MMMM d, yyyy')}</div>
+          </div>
+          <button onClick={onClose} className="text-gray-300 hover:text-gray-500 text-2xl leading-none">×</button>
+        </div>
+        <div className="p-4 space-y-2 max-h-[60vh] overflow-y-auto">
+          {details.map((d, i) => (
+            <div key={i} className="flex items-center gap-3 p-2.5 rounded-lg bg-gray-50 border border-gray-100">
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${BAR_COLORS[d.personIdx % BAR_COLORS.length]}`}>
+                {d.personName}
+              </span>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-gray-600">
+                  {format(parseISO(d.startDate), 'MMM d')} – {format(parseISO(d.endDate), 'MMM d, yyyy')}
+                </p>
+                {d.note && <p className="text-[11px] text-gray-400 mt-0.5 truncate">{d.note}</p>}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
