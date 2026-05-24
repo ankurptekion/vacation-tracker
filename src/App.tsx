@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Holiday, Person, Vacation, VacationStore } from './types';
 import { fetchVacations, saveVacations } from './lib/api';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
@@ -24,17 +24,45 @@ function AppInner() {
   const [view, setView] = useState<'timeline' | 'calendar'>('timeline');
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
+  const syncingRef = useRef(false);
+
+  const refresh = useCallback(async () => {
+    if (syncingRef.current) return;
+    try {
+      const d = await fetchVacations();
+      if (syncingRef.current) return;
+      setStore({ holidays: [], ...d });
+      setLastSynced(new Date());
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }, []);
+
   useEffect(() => {
     if (!isAuthenticated) { setLoading(false); return; }
-    fetchVacations().then(d => { setStore({ holidays: [], ...d }); setLastSynced(new Date()); })
-      .catch(e => setError((e as Error).message)).finally(() => setLoading(false));
-  }, [isAuthenticated]);
+    refresh().finally(() => setLoading(false));
+  }, [isAuthenticated, refresh]);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const interval = setInterval(() => { void refresh(); }, 15000);
+    const onFocus = () => { void refresh(); };
+    const onVis = () => { if (!document.hidden) void refresh(); };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVis);
+    };
+  }, [isAuthenticated, refresh]);
 
   const persist = useCallback(async (next: VacationStore) => {
+    syncingRef.current = true;
     setSyncing(true); setError(null);
     try { await saveVacations(next); setLastSynced(new Date()); }
     catch (e) { setError((e as Error).message); }
-    finally { setSyncing(false); }
+    finally { syncingRef.current = false; setSyncing(false); }
   }, []);
 
   const addPerson = (name: string) => {
