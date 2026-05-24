@@ -1,5 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { neon } from '@neondatabase/serverless';
+import { getAuthUser } from './_lib/auth';
 
 interface Person { id: string; name: string }
 interface Vacation { id: string; personId: string; startDate: string; endDate: string; note?: string }
@@ -25,6 +26,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!process.env.DATABASE_URL) {
     return res.status(500).json({ error: 'DATABASE_URL is not set. Add Neon storage in your Vercel project.' });
   }
+
+  const user = await getAuthUser(req);
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
 
   try {
     const sql = await db();
