@@ -5,11 +5,11 @@ import {
 } from 'date-fns';
 import type { Person, Vacation, Holiday, Country } from '../types';
 
-const HOLIDAY_TINT: Record<Country, { cell: string; chip: string; date: string }> = {
-  IN: { cell: 'bg-amber-50',  chip: 'bg-amber-100 text-amber-800',  date: 'text-amber-800' },
-  US: { cell: 'bg-sky-50',    chip: 'bg-sky-100 text-sky-800',      date: 'text-sky-800' },
+const HOLIDAY_TINT: Record<Country, { cell: string; chip: string; date: string; badge: string }> = {
+  IN: { cell: 'bg-amber-50', chip: 'bg-amber-100 text-amber-800', date: 'text-amber-800', badge: 'bg-amber-500 text-white' },
+  US: { cell: 'bg-sky-50',   chip: 'bg-sky-100 text-sky-800',     date: 'text-sky-800',   badge: 'bg-sky-500 text-white' },
 };
-const DEFAULT_HOLIDAY_TINT = { cell: 'bg-amber-50', chip: 'bg-amber-100 text-amber-800', date: 'text-amber-800' };
+const DEFAULT_HOLIDAY_TINT = { cell: 'bg-amber-50', chip: 'bg-amber-100 text-amber-800', date: 'text-amber-800', badge: 'bg-amber-500 text-white' };
 
 const BAR_COLORS = [
   'bg-blue-100 text-blue-700',
@@ -194,12 +194,16 @@ export default function CalendarView({ people, vacations, holidays = [] }: Props
                 return (
                   <div
                     key={h.id}
-                    className={`mx-1 mb-px text-[10px] font-semibold leading-[18px] rounded px-1.5 truncate ${tint.chip}`}
+                    className={`mx-1 mb-px text-[10px] font-medium leading-[18px] rounded px-1 flex items-center gap-1 truncate cursor-pointer ${tint.chip}`}
                     title={h.country ? `${h.country} — ${h.name}` : h.name}
                     onClick={() => setExpandedDay(day)}
                   >
-                    {h.country && <span className="opacity-70 mr-1">{h.country}</span>}
-                    {h.name}
+                    {h.country && (
+                      <span className={`text-[9px] font-bold uppercase px-1 rounded ${tint.badge} leading-none py-0.5 flex-shrink-0`}>
+                        {h.country}
+                      </span>
+                    )}
+                    <span className="truncate">{h.name}</span>
                   </div>
                 );
               })}
@@ -283,9 +287,14 @@ function DayDetailsModal({ day, dayHolidays, details, onClose }: { day: Date; da
           {dayHolidays.map(h => {
             const tint = h.country ? HOLIDAY_TINT[h.country] : DEFAULT_HOLIDAY_TINT;
             return (
-              <div key={h.id} className={`flex items-center gap-3 p-2.5 rounded-lg border ${tint.cell.replace('bg-', 'border-').replace('-50', '-200')} ${tint.cell}`}>
-                <span className={`text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded ${tint.chip}`}>
-                  Holiday{h.country ? ` · ${h.country}` : ''}
+              <div key={h.id} className={`flex items-center gap-2.5 p-2.5 rounded-lg border ${tint.cell.replace('bg-', 'border-').replace('-50', '-200')} ${tint.cell}`}>
+                {h.country && (
+                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${tint.badge}`}>
+                    {h.country}
+                  </span>
+                )}
+                <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded ${tint.chip}`}>
+                  Holiday
                 </span>
                 <span className={`text-sm font-medium ${tint.date}`}>{h.name}</span>
               </div>
