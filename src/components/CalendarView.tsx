@@ -3,7 +3,13 @@ import {
   format, startOfMonth, endOfMonth, eachDayOfInterval,
   isToday, getDay, parseISO, addMonths, subMonths,
 } from 'date-fns';
-import type { Person, Vacation, Holiday } from '../types';
+import type { Person, Vacation, Holiday, Country } from '../types';
+
+const HOLIDAY_TINT: Record<Country, { cell: string; chip: string; date: string }> = {
+  IN: { cell: 'bg-amber-50',  chip: 'bg-amber-100 text-amber-800',  date: 'text-amber-800' },
+  US: { cell: 'bg-sky-50',    chip: 'bg-sky-100 text-sky-800',      date: 'text-sky-800' },
+};
+const DEFAULT_HOLIDAY_TINT = { cell: 'bg-amber-50', chip: 'bg-amber-100 text-amber-800', date: 'text-amber-800' };
 
 const BAR_COLORS = [
   'bg-blue-100 text-blue-700',
@@ -40,7 +46,12 @@ interface DayDetail {
 }
 
 export default function CalendarView({ people, vacations, holidays = [] }: Props) {
-  const holidayByDate = new Map(holidays.map(h => [h.date, h]));
+  const holidaysByDate = new Map<string, Holiday[]>();
+  for (const h of holidays) {
+    const arr = holidaysByDate.get(h.date) ?? [];
+    arr.push(h);
+    holidaysByDate.set(h.date, arr);
+  }
   const [current, setCurrent] = useState(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -157,8 +168,13 @@ export default function CalendarView({ people, vacations, holidays = [] }: Props
           const shown = bars.slice(0, 3);
           const extra = bars.length - shown.length;
           const todayDay = isToday(day);
-          const holiday  = holidayByDate.get(format(day, 'yyyy-MM-dd'));
-          const cellBg   = holiday ? 'bg-amber-50' : (isWeekend ? 'bg-gray-50' : 'bg-white');
+          const dayHolidays = holidaysByDate.get(format(day, 'yyyy-MM-dd')) ?? [];
+          const firstHolidayTint = dayHolidays.length
+            ? (dayHolidays[0].country ? HOLIDAY_TINT[dayHolidays[0].country] : DEFAULT_HOLIDAY_TINT)
+            : null;
+          const cellBg = firstHolidayTint
+            ? firstHolidayTint.cell
+            : (isWeekend ? 'bg-gray-50' : 'bg-white');
 
           return (
             <div
@@ -167,20 +183,26 @@ export default function CalendarView({ people, vacations, holidays = [] }: Props
             >
               <div className="flex justify-center mb-1 px-1">
                 <span className={`w-6 h-6 flex items-center justify-center text-xs font-medium rounded-full ${
-                  todayDay ? 'bg-sky-500 text-white' : holiday ? 'text-amber-800' : 'text-gray-600'
+                  todayDay ? 'bg-sky-500 text-white' : firstHolidayTint ? firstHolidayTint.date : 'text-gray-600'
                 }`}>
                   {format(day, 'd')}
                 </span>
               </div>
 
-              {holiday && (
-                <div
-                  className="mx-1 mb-px text-[10px] font-semibold leading-[18px] text-amber-800 bg-amber-100 rounded px-1.5 truncate"
-                  title={holiday.name}
-                >
-                  {holiday.name}
-                </div>
-              )}
+              {dayHolidays.map(h => {
+                const tint = h.country ? HOLIDAY_TINT[h.country] : DEFAULT_HOLIDAY_TINT;
+                return (
+                  <div
+                    key={h.id}
+                    className={`mx-1 mb-px text-[10px] font-semibold leading-[18px] rounded px-1.5 truncate ${tint.chip}`}
+                    title={h.country ? `${h.country} — ${h.name}` : h.name}
+                    onClick={() => setExpandedDay(day)}
+                  >
+                    {h.country && <span className="opacity-70 mr-1">{h.country}</span>}
+                    {h.name}
+                  </div>
+                );
+              })}
 
               <div className="flex flex-col gap-px px-0 flex-1">
                 {shown.map((bar, bi) => {
@@ -234,7 +256,7 @@ export default function CalendarView({ people, vacations, holidays = [] }: Props
       {expandedDay && (
         <DayDetailsModal
           day={expandedDay}
-          holiday={holidayByDate.get(format(expandedDay, 'yyyy-MM-dd'))}
+          dayHolidays={holidaysByDate.get(format(expandedDay, 'yyyy-MM-dd')) ?? []}
           details={getDayDetails(expandedDay)}
           onClose={() => setExpandedDay(null)}
         />
@@ -243,7 +265,7 @@ export default function CalendarView({ people, vacations, holidays = [] }: Props
   );
 }
 
-function DayDetailsModal({ day, holiday, details, onClose }: { day: Date; holiday?: Holiday; details: DayDetail[]; onClose: () => void }) {
+function DayDetailsModal({ day, dayHolidays, details, onClose }: { day: Date; dayHolidays: Holiday[]; details: DayDetail[]; onClose: () => void }) {
   return (
     <div
       className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-40 p-4"
@@ -258,13 +280,18 @@ function DayDetailsModal({ day, holiday, details, onClose }: { day: Date; holida
           <button onClick={onClose} className="text-gray-300 hover:text-gray-500 text-2xl leading-none">×</button>
         </div>
         <div className="p-4 space-y-2 max-h-[60vh] overflow-y-auto">
-          {holiday && (
-            <div className="flex items-center gap-3 p-2.5 rounded-lg bg-amber-50 border border-amber-200">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-amber-700 bg-amber-100 px-2 py-0.5 rounded">Holiday</span>
-              <span className="text-sm font-medium text-amber-900">{holiday.name}</span>
-            </div>
-          )}
-          {details.length === 0 && !holiday && (
+          {dayHolidays.map(h => {
+            const tint = h.country ? HOLIDAY_TINT[h.country] : DEFAULT_HOLIDAY_TINT;
+            return (
+              <div key={h.id} className={`flex items-center gap-3 p-2.5 rounded-lg border ${tint.cell.replace('bg-', 'border-').replace('-50', '-200')} ${tint.cell}`}>
+                <span className={`text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded ${tint.chip}`}>
+                  Holiday{h.country ? ` · ${h.country}` : ''}
+                </span>
+                <span className={`text-sm font-medium ${tint.date}`}>{h.name}</span>
+              </div>
+            );
+          })}
+          {details.length === 0 && dayHolidays.length === 0 && (
             <p className="text-sm text-gray-400 text-center py-4">Nothing scheduled.</p>
           )}
           {details.map((d, i) => (

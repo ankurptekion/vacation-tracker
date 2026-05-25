@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { Holiday, Person, Vacation, VacationStore } from './types';
+import type { Country, Holiday, Person, Vacation, VacationStore } from './types';
 import { fetchVacations, saveVacations } from './lib/api';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import Header from './components/Header';
@@ -51,8 +51,8 @@ function AppInner() {
     finally { syncingRef.current = false; setSyncing(false); }
   }, []);
 
-  const addPerson = (name: string) => {
-    const next = { ...store, people: [...store.people, { id: crypto.randomUUID(), name } as Person] };
+  const addPerson = (name: string, country: Country) => {
+    const next = { ...store, people: [...store.people, { id: crypto.randomUUID(), name, country } as Person] };
     setStore(next); void persist(next);
   };
   const removePerson = (id: string) => {

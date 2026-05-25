@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Person } from '../types';
+import type { Country, Person } from '../types';
 
 export const PERSON_COLORS = [
   'bg-blue-100 text-blue-700 border-blue-200',
@@ -14,21 +14,23 @@ export const PERSON_COLORS = [
 
 interface Props {
   people: Person[];
-  onAdd: (name: string) => void;
+  onAdd: (name: string, country: Country) => void;
   onRemove: (id: string) => void;
   readOnly?: boolean;
 }
 
 export default function PeopleManager({ people, onAdd, onRemove, readOnly = false }: Props) {
   const [newName, setNewName] = useState('');
+  const [newCountry, setNewCountry] = useState<Country>('IN');
   const [adding, setAdding] = useState(false);
 
   const commit = () => {
     const t = newName.trim();
     if (!t) return;
-    onAdd(t); setNewName(''); setAdding(false);
+    onAdd(t, newCountry);
+    setNewName(''); setNewCountry('IN'); setAdding(false);
   };
-  const cancel = () => { setAdding(false); setNewName(''); };
+  const cancel = () => { setAdding(false); setNewName(''); setNewCountry('IN'); };
 
   return (
     <section className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
@@ -43,8 +45,11 @@ export default function PeopleManager({ people, onAdd, onRemove, readOnly = fals
           <span className="text-sm text-gray-400">No team members yet — ask an admin to add them.</span>
         )}
         {people.map((p, i) => (
-          <span key={p.id} className={`inline-flex items-center gap-1 px-3 py-1.5 rounded-full border text-sm font-medium ${PERSON_COLORS[i % PERSON_COLORS.length]}`}>
+          <span key={p.id} className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-sm font-medium ${PERSON_COLORS[i % PERSON_COLORS.length]}`}>
             {p.name}
+            {p.country && (
+              <span className="text-[10px] font-semibold opacity-70 uppercase">{p.country}</span>
+            )}
             {!readOnly && (
               <button onClick={() => onRemove(p.id)} className="ml-0.5 opacity-40 hover:opacity-100 transition-opacity text-base leading-none" title={`Remove ${p.name}`}>×</button>
             )}
@@ -55,6 +60,14 @@ export default function PeopleManager({ people, onAdd, onRemove, readOnly = fals
             <input autoFocus value={newName} onChange={e => setNewName(e.target.value)}
               onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') cancel(); }}
               placeholder="Name" className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 w-36" />
+            <select
+              value={newCountry}
+              onChange={e => setNewCountry(e.target.value as Country)}
+              className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500 bg-white"
+            >
+              <option value="IN">India</option>
+              <option value="US">US</option>
+            </select>
             <button onClick={commit} disabled={!newName.trim()} className="bg-sky-500 text-white rounded-lg px-3 py-1.5 text-sm font-medium hover:bg-sky-600 disabled:opacity-40 transition-colors">Add</button>
             <button onClick={cancel} className="text-gray-400 hover:text-gray-600 text-sm px-2">Cancel</button>
           </div>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { format, parseISO } from 'date-fns';
-import type { Holiday } from '../types';
+import type { Country, Holiday } from '../types';
 
 interface Props {
   holidays: Holiday[];
@@ -9,22 +9,28 @@ interface Props {
   readOnly?: boolean;
 }
 
+const COUNTRY_TINT: Record<Country, string> = {
+  IN: 'bg-amber-50 text-amber-800 border-amber-200',
+  US: 'bg-sky-50 text-sky-800 border-sky-200',
+};
+
 export default function HolidayManager({ holidays, onAdd, onRemove, readOnly = false }: Props) {
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
   const [date, setDate] = useState('');
+  const [country, setCountry] = useState<Country>('IN');
 
   const commit = () => {
     const n = name.trim();
     if (!n || !date) return;
-    if (holidays.some(h => h.date === date)) {
-      setName(''); setDate(''); setAdding(false);
+    if (holidays.some(h => h.date === date && h.country === country)) {
+      setName(''); setDate(''); setCountry('IN'); setAdding(false);
       return;
     }
-    onAdd({ name: n, date });
-    setName(''); setDate(''); setAdding(false);
+    onAdd({ name: n, date, country });
+    setName(''); setDate(''); setCountry('IN'); setAdding(false);
   };
-  const cancel = () => { setAdding(false); setName(''); setDate(''); };
+  const cancel = () => { setAdding(false); setName(''); setDate(''); setCountry('IN'); };
 
   const sorted = [...holidays].sort((a, b) => a.date.localeCompare(b.date));
 
@@ -43,21 +49,27 @@ export default function HolidayManager({ holidays, onAdd, onRemove, readOnly = f
             {readOnly ? 'No holidays set yet.' : 'No holidays added yet.'}
           </span>
         )}
-        {sorted.map(h => (
-          <span key={h.id} className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full border bg-amber-50 text-amber-800 border-amber-200 text-sm">
-            <span className="font-medium">{h.name}</span>
-            <span className="text-xs text-amber-700/70">{format(parseISO(h.date), 'MMM d, yyyy')}</span>
-            {!readOnly && (
-              <button
-                onClick={() => onRemove(h.id)}
-                className="opacity-50 hover:opacity-100 text-base leading-none transition-opacity"
-                title={`Remove ${h.name}`}
-              >
-                ×
-              </button>
-            )}
-          </span>
-        ))}
+        {sorted.map(h => {
+          const tint = h.country ? COUNTRY_TINT[h.country] : 'bg-gray-50 text-gray-700 border-gray-200';
+          return (
+            <span key={h.id} className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-sm ${tint}`}>
+              {h.country && (
+                <span className="text-[10px] font-semibold uppercase opacity-70">{h.country}</span>
+              )}
+              <span className="font-medium">{h.name}</span>
+              <span className="text-xs opacity-70">{format(parseISO(h.date), 'MMM d, yyyy')}</span>
+              {!readOnly && (
+                <button
+                  onClick={() => onRemove(h.id)}
+                  className="opacity-50 hover:opacity-100 text-base leading-none transition-opacity"
+                  title={`Remove ${h.name}`}
+                >
+                  ×
+                </button>
+              )}
+            </span>
+          );
+        })}
 
         {!readOnly && (adding ? (
           <div className="flex items-center gap-2">
@@ -76,6 +88,14 @@ export default function HolidayManager({ holidays, onAdd, onRemove, readOnly = f
               onKeyDown={e => { if (e.key === 'Enter') commit(); if (e.key === 'Escape') cancel(); }}
               className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500"
             />
+            <select
+              value={country}
+              onChange={e => setCountry(e.target.value as Country)}
+              className="border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white"
+            >
+              <option value="IN">India</option>
+              <option value="US">US</option>
+            </select>
             <button
               onClick={commit}
               disabled={!name.trim() || !date}
