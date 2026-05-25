@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import type { Country, Holiday } from '../types';
 
@@ -24,6 +24,16 @@ export default function HolidayManager({ holidays, onAdd, onRemove, readOnly = f
   const [adding, setAdding] = useState(false);
   const [name, setName] = useState('');
   const [date, setDate] = useState('');
+  const [today, setToday] = useState(() => format(new Date(), 'yyyy-MM-dd'));
+
+  useEffect(() => {
+    const now = new Date();
+    const nextMidnight = new Date(now);
+    nextMidnight.setHours(24, 0, 5, 0);
+    const msUntil = nextMidnight.getTime() - now.getTime();
+    const timer = setTimeout(() => setToday(format(new Date(), 'yyyy-MM-dd')), msUntil);
+    return () => clearTimeout(timer);
+  }, [today]);
 
   const commit = () => {
     const n = name.trim();
@@ -37,47 +47,53 @@ export default function HolidayManager({ holidays, onAdd, onRemove, readOnly = f
   };
   const cancel = () => { setAdding(false); setName(''); setDate(''); };
 
-  const inTab = [...holidays].filter(h => (h.country ?? 'IN') === tab).sort((a, b) => a.date.localeCompare(b.date));
-  const tabCounts = { IN: holidays.filter(h => (h.country ?? 'IN') === 'IN').length, US: holidays.filter(h => h.country === 'US').length };
+  const upcoming = holidays.filter(h => h.date >= today);
+  const inTab = [...upcoming].filter(h => (h.country ?? 'IN') === tab).sort((a, b) => a.date.localeCompare(b.date));
+  const tabCounts = {
+    IN: upcoming.filter(h => (h.country ?? 'IN') === 'IN').length,
+    US: upcoming.filter(h => h.country === 'US').length,
+  };
 
   return (
     <section className="bg-white rounded-xl border border-gray-200 shadow-sm p-5">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Company Holidays</h2>
+        <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Upcoming Company Holidays</h2>
         {readOnly && (
           <span className="text-[11px] text-gray-400 italic">Read-only · set by admin</span>
         )}
       </div>
 
       {/* Country tabs */}
-      <div className="flex bg-gray-100 rounded-xl p-1 w-fit mb-4">
-        {(['IN', 'US'] as Country[]).map(c => (
-          <button
-            key={c}
-            onClick={() => { setTab(c); cancel(); }}
-            className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-2 ${
-              tab === c
-                ? c === 'IN' ? 'bg-white text-amber-700 shadow-sm' : 'bg-white text-sky-700 shadow-sm'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 rounded ${
-              tab === c ? COUNTRY_BADGE[c] : 'bg-gray-200 text-gray-500'
-            }`}>
-              {c}
-            </span>
-            {c === 'IN' ? 'India' : 'United States'}
-            <span className="text-[11px] text-gray-400">{tabCounts[c]}</span>
-          </button>
-        ))}
+      <div className="inline-flex border border-gray-200 rounded-xl overflow-hidden mb-4 shadow-sm">
+        {(['IN', 'US'] as Country[]).map(c => {
+          const active = tab === c;
+          const activeBg = c === 'IN' ? 'bg-amber-500' : 'bg-sky-500';
+          return (
+            <button
+              key={c}
+              onClick={() => { setTab(c); cancel(); }}
+              className={`px-5 py-2 text-sm font-semibold flex items-center gap-2.5 transition-all border-r last:border-r-0 border-gray-200 ${
+                active
+                  ? `${activeBg} text-white`
+                  : 'bg-white text-gray-500 hover:bg-gray-50 hover:text-gray-800'
+              }`}
+            >
+              <span className="text-lg leading-none">{c === 'IN' ? '🇮🇳' : '🇺🇸'}</span>
+              <span>{c === 'IN' ? 'India' : 'United States'}</span>
+              <span className={`text-[11px] font-bold px-1.5 py-0.5 rounded min-w-[20px] text-center ${
+                active ? 'bg-white/25 text-white' : 'bg-gray-100 text-gray-500'
+              }`}>
+                {tabCounts[c]}
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       <div className="flex flex-wrap gap-2 items-center">
         {inTab.length === 0 && !adding && (
           <span className="text-sm text-gray-400">
-            {readOnly
-              ? `No ${tab === 'IN' ? 'India' : 'US'} holidays yet.`
-              : `No ${tab === 'IN' ? 'India' : 'US'} holidays added yet.`}
+            No upcoming {tab === 'IN' ? 'India' : 'US'} holidays.
           </span>
         )}
         {inTab.map(h => (
