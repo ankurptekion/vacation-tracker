@@ -9,9 +9,14 @@ export default function Header({ syncing, lastSynced, error }: Props) {
   return (
     <header className="bg-white border-b border-gray-200 shadow-sm sticky top-0 z-10">
       <div className="max-w-4xl mx-auto px-4 py-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Team Vacation Tracker</h1>
-          <p className="text-xs text-gray-400 mt-0.5">Powered by Neon · Deployed on Vercel</p>
+        <div className="flex items-center gap-3">
+          <img
+            src="https://cdn.prod.website-files.com/685291c1265e608fdfed1a69/68b569bb747a7ae841220742_1060598de6679bda28a5c166339d95bc_Logo.svg"
+            alt="Tekion"
+            className="h-7 w-auto"
+          />
+          <span className="h-6 w-px bg-gray-200" aria-hidden="true" />
+          <h1 className="text-lg font-semibold text-gray-900">Team Vacation Tracker</h1>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-sm">
